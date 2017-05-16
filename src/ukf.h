@@ -67,6 +67,7 @@ public:
 
   ///* Sigma point spreading parameter
   double lambda_;
+  double lambda_aug_;
 
   ///* the current NIS for radar
   double NIS_radar_;
@@ -108,6 +109,12 @@ public:
    * @param meas_package The measurement at k+1
    */
   void UpdateRadar(MeasurementPackage meas_package);
+
+private:
+  void GenerateSigmaPoints(MatrixXd *Xsig_generated);
+  void AugmentSigmaPoints(MatrixXd *Xsig_aug);
+  MatrixXd SigmaPointPrediction(const Eigen::MatrixXd &Xsig_aug, const double &delta_t);
+
 };
 
 #endif /* UKF_H */
