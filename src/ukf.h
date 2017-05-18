@@ -61,9 +61,11 @@ public:
 
   ///* State dimension
   int n_x_;
+  int n_z_;
 
   ///* Augmented state dimension
   int n_aug_;
+  int size_aug_;
 
   ///* Sigma point spreading parameter
   double lambda_;
@@ -74,6 +76,10 @@ public:
 
   ///* the current NIS for laser
   double NIS_laser_;
+
+  MatrixXd R_radar_;
+  MatrixXd R_laser_;
+  MatrixXd Q_;
 
   /**
    * Constructor
@@ -111,9 +117,12 @@ public:
   void UpdateRadar(MeasurementPackage meas_package);
 
 private:
-  void GenerateSigmaPoints(MatrixXd *Xsig_generated);
+//  void GenerateSigmaPoints(MatrixXd *Xsig_generated);
   void AugmentSigmaPoints(MatrixXd *Xsig_aug);
-  MatrixXd SigmaPointPrediction(const Eigen::MatrixXd &Xsig_aug, const double &delta_t);
+  void SigmaPointPrediction(const MatrixXd &Xsig_aug, const double &delta_t);
+  void PredictMeanAndCovariance();
+  void PredictRadarMesurement(const MatrixXd & Xsig_pred, VectorXd * z_out, MatrixXd * S_out);
+  long long past_timestamp_;
 
 };
 
