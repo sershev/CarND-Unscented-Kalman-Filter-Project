@@ -54,14 +54,14 @@ UKF::UKF() {
 
   past_timestamp_ = 0;
 
-  MatrixXd R_radar_ = MatrixXd::Zero(n_z_,n_z_);
+  R_radar_ = MatrixXd::Zero(n_z_,n_z_);
   R_radar_(0,0) = std_radr_*std_radr_;
   R_radar_(1,1) = std_radphi_ *std_radphi_;
   R_radar_(2,2) = std_radrd_ * std_radrd_;
 
-  MatrixXd R_laser_ = MatrixXd::Zero(5,5);
-  R_laser_(0,0) = std_laspx_*std_laspx_;
-  R_laser_(1,1) = std_laspy_ *std_laspy_;
+  R_laser_ = MatrixXd::Zero(2,2);
+  R_laser_(0,0) = std_laspx_ * std_laspx_;
+  R_laser_(1,1) = std_laspy_ * std_laspy_;
 
   Q_ = MatrixXd(2,2);
   Q_ << std_a_*std_a_, 0,
@@ -69,9 +69,7 @@ UKF::UKF() {
 
 
   // Weights of sigma points
-  VectorXd weights_;
-
-
+  weights_;
 
   // Augmented state dimension
   n_aug_ = 7;
@@ -82,22 +80,19 @@ UKF::UKF() {
   lambda_aug_ = 3 - n_aug_;
 
   // the current NIS for radar
-  double NIS_radar_;
+  NIS_radar_;
 
   // the current NIS for laser
-  double NIS_laser_;
+  NIS_laser_;
 
   Xsig_pred_ = MatrixXd::Zero(n_x_, size_aug_);
 
+  H_laser_ = MatrixXd::Zero(2,n_x_);
+  H_laser_(0,0) = H_laser_(1,1) = 1;
+  H_laser_t_ = H_laser_.transpose();
+
   long long time_us_;
 
-  /**
-  TODO:
-
-  Complete the initialization. See ukf.h for other member properties.
-
-  Hint: one or more values initialized above might be wildly off...
-  */
 }
 
 UKF::~UKF() {}
@@ -107,12 +102,7 @@ UKF::~UKF() {}
  * either radar or laser.
  */
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
-  /**
-  TODO:
 
-  Complete this function! Make sure you switch between lidar and radar
-  measurements.
-  */
     if (! is_initialized_){
         past_timestamp_ = meas_package.timestamp_;
         is_initialized_ = true;
@@ -162,19 +152,14 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     //Predict Step
     MatrixXd Xsig_aug = MatrixXd::Zero(n_aug_, 2 * n_aug_ + 1);
     AugmentSigmaPoints(&Xsig_aug);
-
-    cout << Xsig_aug << endl;
-
-//    MatrixXd Xsig_pred = MatrixXd::Zero(n_x_, 2 * n_aug_ + 1);
     SigmaPointPrediction(Xsig_aug, delta_t);
-    cout << Xsig_pred_ << endl;
     PredictMeanAndCovariance();
 
     //Update Step
     if(meas_package.sensor_type_ == MeasurementPackage::SensorType::RADAR){
-
+        UpdateRadar(meas_package);
     }else if(meas_package.sensor_type_ == MeasurementPackage::SensorType::LASER){
-
+        UpdateLidar(meas_package);
     }
 }
 
@@ -205,6 +190,13 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the lidar NIS.
   */
+    VectorXd y = meas_package.raw_measurements_ - H_laser_*x_;
+    MatrixXd PH_t = P_ * H_laser_t_;
+    MatrixXd S = H_laser_ * PH_t + R_laser_;
+    MatrixXd K = PH_t * S.inverse();
+    x_ = x_ + K * y;
+    MatrixXd I = MatrixXd::Identity(n_x_,n_x_);
+    P_ = (I - K*H_laser_) * P_;
 }
 
 /**
@@ -298,12 +290,9 @@ void UKF::SigmaPointPrediction(const MatrixXd & Xsig_aug, const double & delta_t
   void UKF::PredictMeanAndCovariance(){
 
       //predict state mean
-      cout << x_ << endl;
-      cout << Xsig_pred_ << endl;
       for(int i=0; i<size_aug_; ++i){
           x_ = x_ + weights_(i)*Xsig_pred_.col(i);
       }
-      cout << x_ << endl;
 
       //predict state covariance matrix
       for(int i=0; i < size_aug_; ++i){
