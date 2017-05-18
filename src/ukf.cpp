@@ -80,10 +80,10 @@ UKF::UKF() {
   lambda_aug_ = 3 - n_aug_;
 
   // the current NIS for radar
-  NIS_radar_;
+  NIS_radar_ = 0;
 
   // the current NIS for laser
-  NIS_laser_;
+  NIS_laser_ = 0;
 
   Xsig_pred_ = MatrixXd::Zero(n_x_, size_aug_);
 
@@ -160,21 +160,8 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
         UpdateRadar(meas_package);
     }else if(meas_package.sensor_type_ == MeasurementPackage::SensorType::LASER){
         UpdateLidar(meas_package);
+        cout << "NIS laser: " << NIS_laser_ << endl;
     }
-}
-
-/**
- * Predicts sigma points, the state, and the state covariance matrix.
- * @param {double} delta_t the change in time (in seconds) between the last
- * measurement and this one.
- */
-void UKF::Prediction(double delta_t) {
-  /**
-  TODO:
-
-  Complete this function! Estimate the object's location. Modify the state
-  vector, x_. Predict sigma points, the state, and the state covariance matrix.
-  */
 }
 
 /**
@@ -193,10 +180,13 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
     VectorXd y = meas_package.raw_measurements_ - H_laser_*x_;
     MatrixXd PH_t = P_ * H_laser_t_;
     MatrixXd S = H_laser_ * PH_t + R_laser_;
+    MatrixXd S_inv = S.inverse();
     MatrixXd K = PH_t * S.inverse();
     x_ = x_ + K * y;
     MatrixXd I = MatrixXd::Identity(n_x_,n_x_);
     P_ = (I - K*H_laser_) * P_;
+
+    NIS_laser_= y.transpose() * S_inv * y;
 }
 
 /**
@@ -214,21 +204,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   */
 }
 
-
-//void UKF::GenerateSigmaPoints(MatrixXd *Xsig_generated) {
-
-//    MatrixXd Xsig = MatrixXd::Zero(n_x_, 2 * n_x_ + 1);
-//    MatrixXd L = P_.llt().matrixL();
-//    MatrixXd Sig = sqrt(lambda_+n_x_)*L;
-
-//    Xsig.col(0) = x_;
-//    for (int i = 0; i < n_x_; ++i){
-//        Xsig.col(i+1) = x_ + Sig.col(i);
-//        Xsig.col(i+1+n_x_) = x_ - Sig.col(i);
-//    }
-
-//    Xsig_generated = &Xsig;
-//}
 
 void UKF::AugmentSigmaPoints(MatrixXd *Xsig_aug) {
 
