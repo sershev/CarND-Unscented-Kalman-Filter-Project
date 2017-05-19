@@ -22,3 +22,11 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
     mean = mean.array().sqrt();
     return mean;
 }
+
+double Tools::NormAngle(double angle){
+    if (angle < -M_PI){
+        return angle + 2*M_PI;
+    } else if (angle > M_PI){
+        return angle - 2*M_PI;
+    }
+}
