@@ -113,10 +113,10 @@ public:
 
 private:
 //  void GenerateSigmaPoints(MatrixXd *Xsig_generated);
-  void AugmentSigmaPoints(MatrixXd *Xsig_aug);
+  MatrixXd AugmentSigmaPoints();
   void SigmaPointPrediction(const MatrixXd &Xsig_aug, const double &delta_t);
   void PredictMeanAndCovariance();
-  void PredictRadarMesurement(const MatrixXd & Xsig_pred, VectorXd * z_out, MatrixXd * S_out);
+//  void PredictRadarMesurement(const MatrixXd & Xsig_pred, VectorXd * z_out, MatrixXd * S_out);
   long long past_timestamp_;
 
 };

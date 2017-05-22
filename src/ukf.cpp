@@ -19,7 +19,7 @@ UKF::UKF() {
   use_laser_ = true;
 
   // if this is false, radar measurements will be ignored (except during init)
-  use_radar_ = true;
+  use_radar_ = false;
 
   // initial state vector
   x_ = VectorXd(5);
@@ -144,22 +144,27 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     double delta_t = (meas_package.timestamp_ - past_timestamp_) / 1000000.0;
     past_timestamp_ = meas_package.timestamp_;
 
+    //Predict Step
+    cout << "Predict Step" << endl;
+    Xsig_pred_ = MatrixXd::Zero(n_x_, size_aug_);
+    MatrixXd Xsig_aug = AugmentSigmaPoints();
+    SigmaPointPrediction(Xsig_aug, delta_t);
+    PredictMeanAndCovariance();
+
+    if(delta_t < 0.001)
+        return;
     if(!use_laser_ && meas_package.sensor_type_ == MeasurementPackage::SensorType::LASER)
         return;
     if(!use_radar_ && meas_package.sensor_type_ == MeasurementPackage::SensorType::RADAR)
         return;
 
-    //Predict Step
-    MatrixXd Xsig_aug = MatrixXd::Zero(n_aug_, 2 * n_aug_ + 1);
-    AugmentSigmaPoints(&Xsig_aug);
-    SigmaPointPrediction(Xsig_aug, delta_t);
-    PredictMeanAndCovariance();
-
     //Update Step
+    cout << "Update Step" << endl;
     if(meas_package.sensor_type_ == MeasurementPackage::SensorType::RADAR){
-        UpdateRadar(meas_package);
+//        UpdateRadar(meas_package);
+        cout << "NIS radar: " << NIS_radar_ << endl;
     }else if(meas_package.sensor_type_ == MeasurementPackage::SensorType::LASER){
-        UpdateLidar(meas_package);
+//        UpdateLidar(meas_package);
         cout << "NIS laser: " << NIS_laser_ << endl;
     }
 }
@@ -194,20 +199,62 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
  * @param {MeasurementPackage} meas_package
  */
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
-  /**
-  TODO:
 
-  Complete this function! Use radar data to update the belief about the object's
-  position. Modify the state vector, x_, and covariance, P_.
+//      MatrixXd Zsig = MatrixXd::Zero(n_z_, size_aug_);
+//      double ro, phi, rodot;
+//      for (int i=0; i< Zsig.cols() ; ++i){
+//          VectorXd sigPoint = Xsig_pred_.col(i);
+//          ro = sqrt(sigPoint(0)*sigPoint(0)+sigPoint(1)*sigPoint(1));
+//          bool px_zero = fabs(sigPoint(0) < 0.0001);
+//          bool py_zero = fabs(sigPoint(0) < 0.0001);
+//          if(px_zero && py_zero ){
+//              phi = 0.78;
+//          }else if(px_zero){
+//              phi = M_PI;
+//              std::cout << "Ooops!" << std::endl; //exception
+//          }else{
+//              phi = atan2(sigPoint(1), sigPoint(0));
+//              phi = Tools::NormAngle(phi);
+//          }
+//          rodot = (sigPoint(0)*cos(sigPoint(3))*sigPoint(2)+sigPoint(1)*sin(sigPoint(3))*sigPoint(2))/ro;
+//          Zsig.col(i) << ro, phi, rodot;
 
-  You'll also need to calculate the radar NIS.
-  */
+//      }
+//      //calculate mean predicted measurement
+//      VectorXd z_pred = VectorXd::Zero(n_z_);
+//      for (int i =0; i < Zsig.cols(); ++i){
+//          z_pred = z_pred + weights_(i)*Zsig.col(i);
+//      }
+//      //calculate measurement covariance matrix S
+//      MatrixXd S = MatrixXd::Zero(n_z_,n_z_);
+//      for (int i =0; i< Zsig.cols(); ++i){
+//          VectorXd diff = Zsig.col(i) - z_pred;
+//          S = S + weights_(i)*diff*diff.transpose();
+//      }
+//      S = S + R_radar_;
+//      MatrixXd T = MatrixXd::Zero(n_x_, n_z_);
+//      for (int i = 0; i < size_aug_; ++i){
+//          VectorXd diff_oriign_state = Xsig_pred_.col(i)-x_;
+//          VectorXd diff_radar_state = Zsig.col(i)-z_pred;
+//          diff_oriign_state(3) = Tools::NormAngle(diff_oriign_state(3));
+//          diff_radar_state(1) = Tools::NormAngle(diff_radar_state(1));
+//          T = T + weights_(i) * diff_oriign_state*diff_radar_state.transpose();
+//      }
+//      MatrixXd S_inv = S.inverse();
+//      MatrixXd K = T * S.inverse();
+//      VectorXd z_diff = (meas_package.raw_measurements_ - z_pred);
+//      z_diff(1) = Tools::NormAngle(z_diff(1));
+//      x_ = x_ + K * z_diff;
+//      P_ = P_ - K * S * K.transpose();
+//      NIS_radar_= z_diff.transpose() * S_inv * z_diff;
 }
 
 
-void UKF::AugmentSigmaPoints(MatrixXd *Xsig_aug) {
+Eigen::MatrixXd UKF::AugmentSigmaPoints() {
 
+    MatrixXd Xsig_aug = MatrixXd::Zero(n_aug_, size_aug_);
     VectorXd x_aug = VectorXd(n_aug_);
+    cout << x_aug << endl;
     x_aug.head(n_x_) = x_;
     x_aug(5) = x_aug(6) = 0;
 
@@ -218,15 +265,13 @@ void UKF::AugmentSigmaPoints(MatrixXd *Xsig_aug) {
     MatrixXd L_aug = P_aug.llt().matrixL();
     MatrixXd Sig_aug = sqrt(lambda_aug_+n_aug_)*L_aug;
 
-    MatrixXd Xsig_aug_out = MatrixXd::Zero(n_aug_, size_aug_);
-
-    Xsig_aug_out.col(0) = x_aug;
+    Xsig_aug.col(0) = x_aug;
     for (int i = 0; i < n_aug_; ++i){
-        Xsig_aug_out.col(i+1) = x_aug + Sig_aug.col(i);
-        Xsig_aug_out.col(i+1+n_aug_) = x_aug - Sig_aug.col(i);
+        Xsig_aug.col(i+1) = x_aug + Sig_aug.col(i);
+        Xsig_aug.col(i+1+n_aug_) = x_aug - Sig_aug.col(i);
     }
 
-    *Xsig_aug = Xsig_aug_out;
+   return Xsig_aug;
 }
 
 void UKF::SigmaPointPrediction(const MatrixXd & Xsig_aug, const double & delta_t){
@@ -265,69 +310,63 @@ void UKF::SigmaPointPrediction(const MatrixXd & Xsig_aug, const double & delta_t
   void UKF::PredictMeanAndCovariance(){
 
       //predict state mean
+      x_.fill(0.0);
       for(int i=0; i<size_aug_; ++i){
           x_ = x_ + weights_(i)*Xsig_pred_.col(i);
       }
 
       //predict state covariance matrix
+      P_.fill(0.0);
       for(int i=0; i < size_aug_; ++i){
           VectorXd diff = Xsig_pred_.col(i)-x_;
-
-          if (diff(3) < -M_PI)
-                diff(3) += 2*M_PI;
-          else if(diff(3) > M_PI)
-                diff(3) -= 2*M_PI;
+          diff(3) = Tools::NormAngle(diff(3));
 
           P_ = P_ + weights_(i)*diff*diff.transpose();
       }
   }
 
 
-  void UKF::PredictRadarMesurement(const MatrixXd & Xsig_pred, VectorXd *z_out, Eigen::MatrixXd *S_out){
+//  void UKF::PredictRadarMesurement(const MatrixXd & Xsig_pred, VectorXd *z_out, Eigen::MatrixXd *S_out){
 
-      MatrixXd Zsig = MatrixXd(n_z_, 2 * n_aug_ + 1);
+//      MatrixXd Zsig = MatrixXd(n_z_, 2 * n_aug_ + 1);
 
-      //mean predicted measurement
-      VectorXd z_pred = VectorXd(n_z_);
+//      //mean predicted measurement
+//      VectorXd z_pred = VectorXd(n_z_);
 
-      //transform sigma points into measurement space
-      double ro, phi, rodot;
-      for (int i=0; i< Zsig.cols() ; ++i){
-          VectorXd sigPoint = Xsig_pred.col(i);
-          ro = sqrt(sigPoint(0)*sigPoint(0)+sigPoint(1)*sigPoint(1));
-          bool px_zero = fabs(sigPoint(0) < 0.0001);
-          bool py_zero = fabs(sigPoint(0) < 0.0001);
-          if(px_zero && py_zero ){
-              phi = 0.78;
-          }else if(px_zero){
-              phi = M_PI;
-              std::cout << "Ooops!" << std::endl; //exception
-          }else{
-              phi = atan2(sigPoint(1), sigPoint(0));
-              if (phi < -M_PI){
-                  phi += 2*M_PI;
-              }else if(phi > M_PI){
-                  phi -= 2*M_PI;
-              }
-          }
-          rodot = (sigPoint(0)*cos(sigPoint(3))*sigPoint(2)+sigPoint(1)*sin(sigPoint(3))*sigPoint(2))/ro;
-          Zsig.col(i) << ro, phi, rodot;
+//      //transform sigma points into measurement space
+//      double ro, phi, rodot;
+//      for (int i=0; i< Zsig.cols() ; ++i){
+//          VectorXd sigPoint = Xsig_pred.col(i);
+//          ro = sqrt(sigPoint(0)*sigPoint(0)+sigPoint(1)*sigPoint(1));
+//          bool px_zero = fabs(sigPoint(0) < 0.0001);
+//          bool py_zero = fabs(sigPoint(0) < 0.0001);
+//          if(px_zero && py_zero ){
+//              phi = 0.78;
+//          }else if(px_zero){
+//              phi = M_PI;
+//              std::cout << "Ooops!" << std::endl; //exception
+//          }else{
+//              phi = atan2(sigPoint(1), sigPoint(0));
+//              phi = Tools::NormAngle(phi);
+//          }
+//          rodot = (sigPoint(0)*cos(sigPoint(3))*sigPoint(2)+sigPoint(1)*sin(sigPoint(3))*sigPoint(2))/ro;
+//          Zsig.col(i) << ro, phi, rodot;
 
-      }
+//      }
 
-      MatrixXd S = MatrixXd(n_z_,n_z_);
-      //calculate mean predicted measurement
-      z_pred.fill(0);
-      for (int i =0; i < Zsig.cols(); ++i){
-          z_pred = z_pred + weights_(i)*Zsig.col(i);
-      }
-      //calculate measurement covariance matrix S
-      for (int i =0; i< Zsig.cols(); ++i){
-          VectorXd diff = Zsig.col(i) - z_pred;
-          S = S + weights_(i)*diff*diff.transpose();
-      }
-      S = S + R_radar_;
+//      MatrixXd S = MatrixXd(n_z_,n_z_);
+//      //calculate mean predicted measurement
+//      z_pred.fill(0);
+//      for (int i =0; i < Zsig.cols(); ++i){
+//          z_pred = z_pred + weights_(i)*Zsig.col(i);
+//      }
+//      //calculate measurement covariance matrix S
+//      for (int i =0; i< Zsig.cols(); ++i){
+//          VectorXd diff = Zsig.col(i) - z_pred;
+//          S = S + weights_(i)*diff*diff.transpose();
+//      }
+//      S = S + R_radar_;
 
-      *z_out = z_pred;
-      *S_out = S;
-  }
+//      *z_out = z_pred;
+//      *S_out = S;
+//  }
