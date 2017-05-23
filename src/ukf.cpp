@@ -279,11 +279,12 @@ void UKF::SigmaPointPrediction(const MatrixXd & Xsig_aug, const double & delta_t
             px_p = px + (v/yaw_d) * (sin(yaw+yaw_d*delta_t) - sin(yaw));
             py_p = py + (v/yaw_d) * (-cos(yaw+yaw_d*delta_t) + cos(yaw));
         }
-        px_p += 0.5*delta_t*delta_t*cos(yaw)*nu_a;
-        py_p += 0.5*delta_t*delta_t*sin(yaw)*nu_a;
+        const double delta_t_squered = delta_t*delta_t;
+        px_p += 0.5*delta_t_squered*cos(yaw)*nu_a;
+        py_p += 0.5*delta_t_squered*sin(yaw)*nu_a;
         double v_p = v + delta_t*nu_a;
 
-        double pyaw = yaw + (yaw_d * delta_t) + 0.5*delta_t*delta_t*nu_yaw_dd;
+        double pyaw = yaw + (yaw_d * delta_t) + 0.5*delta_t_squered*nu_yaw_dd;
         double pyawd = yaw_d + 0 + delta_t * nu_yaw_dd;
 
         //write predicted sigma points into right column
