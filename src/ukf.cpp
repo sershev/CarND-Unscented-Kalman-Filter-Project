@@ -28,10 +28,10 @@ UKF::UKF() {
   P_ = MatrixXd::Zero(5, 5);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 0.5;
+  std_a_ = 0.3;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 0.5;
+  std_yawdd_ = 0.3;
 
   // Laser measurement noise standard deviation position1 in m
   std_laspx_ = 0.15;
@@ -40,13 +40,13 @@ UKF::UKF() {
   std_laspy_ = 0.15;
 
   // Radar measurement noise standard deviation radius in m
-  std_radr_ = 1;
+  std_radr_ = 0.3;
 
   // Radar measurement noise standard deviation angle in rad
-  std_radphi_ = 1;
+  std_radphi_ = 0.03;
 
   // Radar measurement noise standard deviation radius change in m/s
-  std_radrd_ = 1;
+  std_radrd_ = 0.3;
 
   // State dimension
   n_x_ = 5;
@@ -90,7 +90,6 @@ UKF::UKF() {
   // Weights of sigma points
   weights_ = VectorXd::Zero(size_aug_);
 
-  time_us_ = 0; // What is this value for?
 
 }
 
@@ -113,11 +112,15 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
             auto sin_phi = sin(phi);
             auto cos_phi = cos(phi);
 
-            x_ << ro * cos_phi,  ro * sin_phi, ro_dot, phi, 0;
+
+            auto vx = ro_dot * cos_phi;
+            auto vy = ro_dot * sin_phi;
+
+            x_ << ro * cos_phi,  ro * sin_phi, sqrt(vx*vx+vy*vy), 0, 0;
             P_(0,0) = 1;
             P_(1,1) = 1;
             P_(2,2) = 1;
-            P_(3,3) = 1;
+            P_(3,3) = 2;
             P_(4,4) = 2;
 
         }
